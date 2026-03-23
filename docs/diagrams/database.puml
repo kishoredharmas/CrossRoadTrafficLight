@@ -1,0 +1,45 @@
+@startuml Database
+title Traffic Light Simulation - Database Schema
+
+entity Crossroads {
+    id : UUID (PK)
+    name : STRING
+    description : TEXT
+    location : JSON (lat, lng, address)
+    mapProvider : STRING (osm, google)
+    lanes : JSON
+    signals : JSON
+    createdAt : DATETIME
+    updatedAt : DATETIME
+}
+
+entity Sessions {
+    id : UUID (PK)
+    name : STRING
+    crossroadId : UUID (FK)
+    algorithm : STRING
+    configuration : JSON
+    status : STRING (created, running, paused, completed)
+    startTime : DATETIME
+    endTime : DATETIME
+    statistics : JSON
+    createdAt : DATETIME
+    updatedAt : DATETIME
+}
+
+entity Recordings {
+    id : UUID (PK)
+    name : STRING
+    sessionId : UUID (FK)
+    duration : INTEGER
+    frames : JSON
+    statistics : JSON
+    metadata : JSON
+    createdAt : DATETIME
+    updatedAt : DATETIME
+}
+
+Crossroads ||--o{ Sessions : has
+Sessions ||--o{ Recordings : has
+
+@enduml

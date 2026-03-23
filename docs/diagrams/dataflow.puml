@@ -1,0 +1,41 @@
+@startuml DataFlow
+title Traffic Light Simulation - Data Flow
+
+rectangle "Crossroad Design" {
+    (User Input) --> (React)
+    (React) --> (HTTP)
+    (HTTP) --> (Route)
+    (Route) --> (Service)
+    (Service) --> (ORM)
+    (ORM) --> (DB)
+    (DB) --> (Response)
+    (Response) --> (Update)
+    (Update) --> (Refresh)
+}
+
+rectangle "Simulation Start" {
+    (Click Start) --> (POST Start)
+    (POST Start) --> (Manager)
+    (Manager) --> (Engine)
+    (Engine) --> (WS Send)
+    (WS Send) --> (Client)
+    (Client) --> (State)
+    (State) --> (Render)
+}
+
+rectangle "Real-time Loop" {
+    (Frame 1) --> (Vehicles)
+    (Vehicles) --> (Movement)
+    (Movement) --> (Signals)
+    (Signals) --> (Broadcast)
+    (Broadcast) --> (Update Clients)
+    (Update Clients) --> (Frame 2)
+}
+
+rectangle "Playback" {
+    (Load Recording) --> (Get Frames)
+    (Get Frames) --> (Playback)
+    (Playback) --> (Render)
+}
+
+@enduml

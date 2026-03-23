@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Production builds
+client/build/
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Data storage
+data/sessions/*.json
+data/recordings/*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+# Generated diagram images (commit .puml files instead)
+docs/diagrams/*.png
+docs/diagrams/*.svg
+docs/diagrams/*.pdf

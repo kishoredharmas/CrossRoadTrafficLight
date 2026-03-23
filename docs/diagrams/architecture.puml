@@ -1,0 +1,68 @@
+@startuml Architecture
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v14.0/dist
+!include AWSPUML/AWSCommon.puml
+
+title Traffic Light Simulation - System Architecture
+
+package "Client Layer" {
+    component "React App" as React
+    component "Canvas Rendering" as Canvas
+    component "Map View" as MapView
+}
+
+package "Communication" {
+    component "HTTP/REST" as HTTP
+    component "WebSocket" as WS
+}
+
+package "Server Layer" {
+    component "Express.js API" as Express
+    component "WebSocket Server" as WSServer
+    component "Session Manager" as SessionMgr
+    component "Crossroad Manager" as CrossroadMgr
+    component "Recording Manager" as RecordingMgr
+}
+
+package "Simulation Layer" {
+    component "Simulation Engine" as SimEngine
+    component "Vehicle Generator" as VehicleGen
+    component "Signal Algorithms" as Algorithms
+}
+
+package "Data Layer" {
+    database "SQLite DB" as DB
+    component "Sequelize ORM" as ORM
+}
+
+package "External Services" {
+    component "OpenStreetMap API" as OSM
+    component "Google Maps API" as GMaps
+}
+
+React --> HTTP: REST Calls
+React --> WS: Real-time Updates
+React --> MapView: Display Location
+React --> Canvas: Render Simulation
+
+HTTP --> Express: API Routes
+WS --> WSServer: WebSocket Events
+
+Express --> SessionMgr: Session Operations
+Express --> CrossroadMgr: Crossroad Operations
+Express --> RecordingMgr: Recording Operations
+
+WSServer --> SimEngine: Simulation State
+SimEngine --> VehicleGen: Vehicle Spawning
+SimEngine --> Algorithms: Signal Control
+SimEngine --> RecordingMgr: Save Frames
+
+SessionMgr --> ORM: Query Sessions
+CrossroadMgr --> ORM: Query Crossroads
+RecordingMgr --> ORM: Save Recordings
+
+ORM --> DB: Database Operations
+
+MapView --> OSM: Get Tiles
+MapView --> GMaps: Get Tiles
+
+@enduml

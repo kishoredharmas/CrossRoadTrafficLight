@@ -1,0 +1,230 @@
+stages:
+  - build-image
+  - build
+  - test
+  - security
+  - quality
+  - deploy
+
+variables:
+  NODE_VERSION: '18'
+  # Use private GitLab registry image to avoid Docker Hub rate limits
+  DOCKER_IMAGE: '${CI_REGISTRY_IMAGE}/node:18-alpine'
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+# Global settings
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+    on_job_failure: none
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+# Include GitLab security templates
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/Code-Quality.gitlab-ci.yml
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+
+# ============================================================================
+# NOTE: build-docker-image job disabled to avoid Docker Hub rate limits
+# ============================================================================
+# To manually build and push the custom Node.js image to your GitLab registry:
+# 1. Build locally: docker build -t ${CI_REGISTRY_IMAGE}/node:18-alpine -f Dockerfile.base .
+# 2. Login: docker login registry.gitlab.com
+# 3. Push: docker push ${CI_REGISTRY_IMAGE}/node:18-alpine
+# Or uncomment the job below and trigger it manually in GitLab UI
+# ============================================================================
+
+# build-docker-image:
+#   stage: build-image
+#   image: docker:24-dind
+#   services:
+#     - docker:24-dind
+#   variables:
+#     IMAGE_TAG: "${CI_REGISTRY_IMAGE}/node:18-alpine"
+#   script:
+#     - echo "Manually trigger this job only when image needs updating"
+#   rules:
+#     - when: manual
+#   allow_failure: true
+
+# Cache npm dependencies to speed up builds
+cache:
+  key:
+    files:
+      - package-lock.json
+      - client/package-lock.json
+  paths:
+    - .npm
+    - node_modules/
+    - client/node_modules/
+
+# Build stage: compile and test the application
+build:
+  stage: build
+  image: ${DOCKER_IMAGE}
+  interruptible: true
+  needs:
+    - job: build-docker-image
+      optional: true
+  before_script:
+    - echo "Using image:${DOCKER_IMAGE}"
+    - which node || apk add --no-cache nodejs npm
+    - which npm || apk add --no-cache npm
+    - node --version
+    - npm --version
+  cache:
+    key:
+      files:
+        - package-lock.json
+        - client/package-lock.json
+    paths:
+      - .npm
+      - node_modules/
+      - client/node_modules/
+    policy: pull-push
+  script:
+    - echo "=== Building Traffic Light Simulation ==="
+    - export NODE_OPTIONS="--max-old-space-size=256"
+    - echo "Installing server dependencies from cache..."
+    - npm install --prefer-offline --no-audit --legacy-peer-deps --ignore-scripts
+    - echo "Installing client dependencies from cache..."
+    - cd client
+    - npm install --prefer-offline --no-audit --legacy-peer-deps --ignore-scripts
+    - cd ..
+    - echo "Building client application..."
+    - export NODE_OPTIONS="--max-old-space-size=4096"
+    - cd client && GENERATE_SOURCEMAP=false CI=false npm run build && cd ..
+  artifacts:
+    paths:
+      - client/build/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - changes:
+        - package*.json
+        - client/package*.json
+        - server/**/*
+        - client/src/**/*
+        - Dockerfile
+        - .gitlab-ci.yml
+
+# Test stage: run any tests (if available)
+test:
+  stage: test
+  image: ${DOCKER_IMAGE}
+  interruptible: true
+  needs:
+    - build
+  cache:
+    key:
+      files:
+        - package-lock.json
+        - client/package-lock.json
+    paths:
+      - .npm
+      - node_modules/
+      - client/node_modules/
+    policy: pull
+  script:
+    - echo "=== Running Tests ==="
+    - npm ci --prefer-offline --no-audit
+    - cd client && npm ci --prefer-offline --no-audit && cd ..
+    - npm test -- --coverage --ci
+  artifacts:
+    reports:
+      junit: junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - changes:
+        - package*.json
+        - client/package*.json
+        - server/**/*
+        - client/src/**/*
+  allow_failure: true
+
+# Deploy to GitLab Container Registry and make image available for your server
+# This job builds and pushes the Docker image tagged with the commit SHA and 'latest'
+deploy:
+  stage: deploy
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -t $CI_REGISTRY_IMAGE:latest .
+    - echo "Pushing Docker image to GitLab Container Registry..."
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+    - production
+  when: manual
+  allow_failure: false
+
+# Override security jobs to run in security stage
+sast:
+  stage: security
+  interruptible: true
+  needs: []
+  rules:
+    - when: never  # Disabled: requires special SAST runners
+  allow_failure: true
+
+secret_detection:
+  stage: security
+  interruptible: true
+  needs: []
+  rules:
+    - when: never  # Disabled: requires special security scanning runners
+  allow_failure: true
+
+dependency_scanning:
+  stage: security
+  image: ${DOCKER_IMAGE}
+  interruptible: true
+  needs:
+    - job: build-docker-image
+      optional: true
+  rules:
+    - when: never  # Disabled: requires special security scanning runners
+  allow_failure: true
+
+# Override quality jobs to run in quality stage
+code_quality:
+  stage: quality
+  interruptible: true
+  rules:
+    - when: never  # Disabled: requires special code quality runners
+  allow_failure: true
+
+container_scanning:
+  stage: quality
+  interruptible: true
+  variables:
+    CS_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  dependencies:
+    - build
+  rules:
+    - when: never  # Disabled: requires special container scanning runners
+  allow_failure: true

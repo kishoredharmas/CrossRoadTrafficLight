@@ -1,0 +1,42 @@
+@startuml Sequence
+title Traffic Light Simulation - Simulation Lifecycle Sequence
+
+participant User
+participant "React UI" as UI
+participant "HTTP API" as API
+participant "SessionManager" as SessionMgr
+participant "SimulationEngine" as Engine
+participant "WebSocket" as WS
+participant "Database" as DB
+
+User -> UI: Click "Start Simulation"
+UI -> API: POST /sessions/:id/start
+API -> SessionMgr: startSimulation(sessionId)
+SessionMgr -> DB: Get Session & Crossroad
+DB --> SessionMgr: Session Data
+SessionMgr -> Engine: new SimulationEngine()
+SessionMgr -> Engine: start()
+Engine -> Engine: Initialize Signals
+Engine -> Engine: Start Tick Loop
+
+loop Every Frame (60 FPS)
+    Engine -> Engine: Update Vehicles
+    Engine -> Engine: Update Signals
+    Engine -> Engine: Check Collisions
+    Engine -> WS: Broadcast State
+    WS --> UI: Real-time Updates
+    UI -> UI: Render Canvas
+end
+
+User -> UI: Click "Stop Simulation"
+UI -> API: POST /sessions/:id/stop
+API -> SessionMgr: stopSimulation(sessionId)
+SessionMgr -> Engine: stop()
+Engine --> SessionMgr: Final Statistics
+SessionMgr -> DB: Save Session Statistics
+DB --> SessionMgr: Confirmed
+SessionMgr --> API: OK
+API --> UI: Confirmation
+UI --> User: Show Results
+
+@enduml

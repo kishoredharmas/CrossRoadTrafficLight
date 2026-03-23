@@ -1,0 +1,64 @@
+@startuml Components
+title Traffic Light Simulation - Component Architecture
+
+package "Client Pages" {
+    component "Dashboard" as Dashboard
+    component "CrossroadDesigner" as Designer
+    component "SessionManager" as SessionMgr
+    component "SessionPage" as SessionPage
+    component "RecordingManager" as RecordingMgr
+}
+
+package "Client Components" {
+    component "SimulationCanvas" as SimCanvas
+    component "CrossroadCanvas" as CrossCanvas
+    component "TrafficSignals" as Signals
+    component "Statistics" as Stats
+    component "MapView" as MapComp
+    component "Layout" as Layout
+}
+
+package "Server Routes" {
+    component "crossroadRoutes" as CRRoutes
+    component "sessionRoutes" as SRoutes
+    component "recordingRoutes" as RRoutes
+}
+
+package "Server Services" {
+    component "CrossroadManager" as CRMgr
+    component "SessionManager" as SMgr
+    component "RecordingManager" as RMgr
+}
+
+package "Simulation" {
+    component "SimulationEngine" as Engine
+    component "VehicleGenerator" as VGen
+    component "TrafficSignalAlgorithms" as Algos
+}
+
+package "Data Models" {
+    component "Crossroad Model" as CRModel
+    component "Session Model" as SModel
+    component "Recording Model" as RModel
+}
+
+Dashboard --> SimCanvas: Display
+Designer --> CrossCanvas: Render
+SessionPage --> SimCanvas: Update
+SessionPage --> Signals: Display
+SessionPage --> Stats: Show Metrics
+
+CRRoutes --> CRMgr: Use
+SRoutes --> SMgr: Use
+RRoutes --> RMgr: Use
+
+CRMgr --> CRModel: Query
+SMgr --> SModel: Query
+RMgr --> RModel: Query
+
+SMgr --> Engine: Start/Stop
+Engine --> VGen: Spawn
+Engine --> Algos: Control
+Engine --> RMgr: Record
+
+@enduml

@@ -1,0 +1,50 @@
+@startuml Deployment
+title Traffic Light Simulation - Deployment Architecture
+
+package "Development" {
+    node "localhost:3000" as DevClient
+    node "localhost:3001" as DevAPI
+    node "localhost:8080" as DevWS
+    
+    DevClient --> DevAPI: HTTP
+    DevClient --> DevWS: WebSocket
+}
+
+package "Docker Compose" {
+    node "nginx:80/443" as NginxDocker
+    node "Node.js:3001" as DockerApp
+    node "WebSocket:8080" as DockerWS
+    
+    NginxDocker --> DockerApp: Reverse Proxy
+    DockerWS -.-> DockerApp: Same Container
+}
+
+package "Heroku" {
+    node "Heroku Router" as HerokuRouter
+    node "Web Dyno" as WebDyno
+    node "PostgreSQL" as HerokuDB
+    
+    HerokuRouter --> WebDyno: Route Traffic
+    WebDyno --> HerokuDB: Query Data
+}
+
+package "Production (Ubuntu)" {
+    node "nginx:80/443" as NginxProd
+    node "PM2 Process" as PM2
+    node "SQLite DB" as ProdDB
+    
+    NginxProd --> PM2: Reverse Proxy
+    PM2 --> ProdDB: Query
+}
+
+package "Monitoring" {
+    node "PM2 Dashboard" as PM2Monitor
+    node "nginx Logs" as Logs
+    node "Application Logs" as AppLogs
+    
+    PM2Monitor -.-> PM2: Monitor
+    Logs -.-> NginxProd: Logs
+    AppLogs -.-> PM2: Logs
+}
+
+@enduml
